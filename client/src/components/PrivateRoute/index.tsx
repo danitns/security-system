@@ -19,7 +19,7 @@ const PrivateRoute = (props) => {
 
     return () => subscription.unsubscribe();
   }, []);
-  return session ? props.children : <LoginPage></LoginPage>;
+  return session ? props.children : <LoginPage />;
 };
 
 export default PrivateRoute;

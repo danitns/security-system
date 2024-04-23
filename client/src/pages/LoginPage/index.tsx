@@ -7,7 +7,12 @@ const LoginPage = () => {
   return (
     <div>
       LoginPage
-      <Auth supabaseClient={supabase} appearance={{ theme: ThemeSupa }}></Auth>
+      <div style={{ width: 300 }}>
+        <Auth
+          supabaseClient={supabase}
+          appearance={{ theme: ThemeSupa }}
+        ></Auth>
+      </div>
     </div>
   );
 };
