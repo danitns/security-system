@@ -1,25 +1,10 @@
-import { Session } from "@supabase/supabase-js";
-import React, { useEffect, useState } from "react";
-import { supabase } from "../../utils/supabase";
-import LoginPage from "../../pages/LoginPage";
+import React, { useContext } from "react";
+import { Navigate } from "react-router-dom";
+import { CurrentUserContext } from "../ReactContexts/currentUserContext";
 
 const PrivateRoute = (props) => {
-  const [session, setSession] = useState<Session | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-  return session ? props.children : <LoginPage />;
+  const { currentUser } = useContext(CurrentUserContext);
+  return currentUser.session ? props.children : <Navigate to="/login" />;
 };
 
 export default PrivateRoute;

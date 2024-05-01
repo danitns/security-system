@@ -69,6 +69,7 @@ const CameraPage = () => {
       const answer = await response.json();
       await pc.setRemoteDescription(answer);
     } catch (error) {
+      stopStream();
       alert(error);
     }
   };
