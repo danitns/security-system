@@ -6,6 +6,10 @@ import os
 import ssl
 import time
 import av
+from ultralytics import YOLO
+import cv2
+
+from gpiozero import MotionSensor
 
 from aiohttp import web
 from aiortc import RTCPeerConnection, RTCSessionDescription
@@ -16,6 +20,10 @@ from fractions import Fraction
 
 ROOT = os.path.dirname(__file__)
 
+pir = MotionSensor(14)
+
+model = YOLO('yolov8n.pt')
+
 cam = Picamera2()
 #mode = cam.sensor_modes[0]
 #config = cam.create_video_configuration(sensor={'output_size': mode['size'], 'bit_depth': mode['bit_depth']}, main={"size": (640,480)})
@@ -23,9 +31,27 @@ cam.configure(cam.create_video_configuration(main={"size": (640, 480)}))
 #print(cam.sensor_modes)
 #cam.configure(config)
 
+# sensor = {'output_size': (1640, 1232), 'bit_depth': 8}
+# raw = {'format': 'SBGGR8'}  # this is an unpacked format
+#config = camera.create_preview_configuration(sensor=sensor)  # this would fail
+# config = cam.create_preview_configuration(raw=raw, sensor=sensor)  # works
+# cam.configure(config)
+
 cam.start()
 
-
+def detect_yolo(frame):
+    img_rgb = cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB)
+    results = model(img_rgb, stream=True)
+    for result in results:
+        pred = result.probs
+    
+async def check_motion():
+    while True:  # This creates a continuous loop
+        if pir.motion_detected:
+            print('Motion detected')
+        else:
+            print('No motion')
+        await asyncio.sleep(1)
 
 class PiCameraTrack(MediaStreamTrack):
     kind = "video"
@@ -40,6 +66,9 @@ class PiCameraTrack(MediaStreamTrack):
             self._start_time = time.time()
         img = cam.capture_array()
 
+        # if(self._frame_count % 20 == 0):
+        #     detect_yolo(img)
+                    
         pts = time.time() * 1000000
         new_frame = av.VideoFrame.from_ndarray(img, format='rgba')
         new_frame.pts = int(pts)
@@ -112,6 +141,13 @@ async def on_shutdown(app):
     await asyncio.gather(*coros)
     pcs.clear()
 
+async def start_background_tasks(app):
+    app['check_motion'] = asyncio.create_task(check_motion())
+
+async def cleanup_background_tasks(app):
+    app['check_motion'].cancel()
+    await app['check motion']
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="WebRTC webcam demo")
     parser.add_argument("--cert-file", help="SSL certificate file (for HTTPS)")
@@ -153,6 +189,8 @@ if __name__ == "__main__":
         ssl_context = None
 
     app = web.Application()
+    app.on_startup.append(start_background_tasks)
+    app.on_cleanup.append(cleanup_background_tasks)
     app.on_shutdown.append(on_shutdown)
     # app.router.add_get("/", index)
     # app.router.add_get("/client.js", javascript)
