@@ -18,37 +18,36 @@ from aiortc.contrib.media import MediaStreamTrack
 from picamera2 import Picamera2
 from fractions import Fraction
 
-ROOT = os.path.dirname(__file__)
-
 pir = MotionSensor(14)
-
 model = YOLO('yolov8n.pt')
 
 cam = Picamera2()
+cam.configure(cam.create_video_configuration(main={"size": (640, 480)}))
+cam.start()
+
 #mode = cam.sensor_modes[0]
 #config = cam.create_video_configuration(sensor={'output_size': mode['size'], 'bit_depth': mode['bit_depth']}, main={"size": (640,480)})
-cam.configure(cam.create_video_configuration(main={"size": (640, 480)}))
 #print(cam.sensor_modes)
 #cam.configure(config)
-
 # sensor = {'output_size': (1640, 1232), 'bit_depth': 8}
 # raw = {'format': 'SBGGR8'}  # this is an unpacked format
 #config = camera.create_preview_configuration(sensor=sensor)  # this would fail
 # config = cam.create_preview_configuration(raw=raw, sensor=sensor)  # works
 # cam.configure(config)
 
-cam.start()
 
-def detect_yolo(frame):
+async def detect_yolo(frame):
     img_rgb = cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB)
     results = model(img_rgb, stream=True)
     for result in results:
         pred = result.probs
     
 async def check_motion():
-    while True:  # This creates a continuous loop
+    while True:  
         if pir.motion_detected:
-            print('Motion detected')
+            img = cam.capture_array()
+            detect_yolo(img)
+            await asyncio.sleep(10)
         else:
             print('No motion')
         await asyncio.sleep(1)
@@ -103,7 +102,7 @@ async def offer(request):
     cam = PiCameraTrack()
 
     if cam:
-        video_sender = pc.addTrack(cam)
+        pc.addTrack(cam)
 
     await pc.setRemoteDescription(offer)
 
