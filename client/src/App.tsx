@@ -6,6 +6,7 @@ import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import { supabase } from "./utils/supabase";
 import { CurrentUserContext } from "./components/ReactContexts/currentUserContext";
+import SubmenuAndContent from "./components/Layout/SubmenuAndContent";
 
 function App() {
   const { currentUser, setCurrentUser } = useContext(CurrentUserContext);
@@ -30,22 +31,31 @@ function App() {
   }, []);
 
   if (loading) {
-    return null; // or render a loading indicator
+    return null;
   }
 
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<HomePage />} />
+        <Route
+          path="/"
+          element={
+            <PrivateRoute>
+              <SubmenuAndContent>
+                <HomePage />
+              </SubmenuAndContent>
+            </PrivateRoute>
+          }
+        />
 
         <Route path="/login" element={<LoginPage />} />
 
         <Route
           path="/camera"
           element={
-            <PrivateRoute>
+            <SubmenuAndContent>
               <CameraPage />
-            </PrivateRoute>
+            </SubmenuAndContent>
           }
         />
       </Routes>
