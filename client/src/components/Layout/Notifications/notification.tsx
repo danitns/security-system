@@ -7,7 +7,7 @@ interface INotification {
   notification: Tables<"notifications">;
 }
 
-const Notification: React.FC<INotification> = ({ notification }) => {
+const MyNotification: React.FC<INotification> = ({ notification }) => {
   const formatDate = () => {
     return moment(notification.timestamp).format("DD-MM-YYYY hh:mm a");
   };
@@ -24,4 +24,4 @@ const Notification: React.FC<INotification> = ({ notification }) => {
   );
 };
 
-export default Notification;
+export default MyNotification;

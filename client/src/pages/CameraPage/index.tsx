@@ -35,7 +35,7 @@ const CameraPage = () => {
 
     try {
       await pc.addTransceiver("video", { direction: "recvonly" });
-      await pc.addTransceiver("audio", { direction: "recvonly" });
+      await pc.addTransceiver("audio");
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -54,7 +54,7 @@ const CameraPage = () => {
         }
       });
 
-      const response = await fetch("http://192.168.1.150:8080/offer", {
+      const response = await fetch("http://192.168.1.158:8080/offer", {
         body: JSON.stringify({
           sdp: pc.localDescription?.sdp,
           type: pc.localDescription?.type,
@@ -74,9 +74,22 @@ const CameraPage = () => {
     }
   };
 
-  const startStream = () => {
-    const newPc = new RTCPeerConnection(config);
-    setPc(newPc);
+  const startStream = async () => {
+    let newPc = pc;
+    if (!newPc) {
+      newPc = new RTCPeerConnection(config);
+      setPc(newPc);
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: false,
+        audio: true,
+      });
+      stream.getTracks().forEach((track) => newPc.addTrack(track, stream));
+    } catch (error) {
+      console.error("Error accessing media devices.", error);
+    }
   };
 
   const stopStream = () => {

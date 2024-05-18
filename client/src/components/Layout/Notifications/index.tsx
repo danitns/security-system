@@ -11,13 +11,21 @@ import React, { useEffect, useState } from "react";
 import { FaBell } from "react-icons/fa";
 import { Tables } from "../../../types/supabase";
 import { supabase } from "../../../utils/supabase";
-import Notification from "./notification";
+import MyNotification from "./notification";
 
 const Notifications = () => {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<Tables<"notifications">[]>(
     []
   );
+
+  const notifyUser = (title: string, body: string) => {
+    if (!("Notification" in window)) {
+      alert("Browser does not support notifications");
+    } else if (Notification.permission === "granted") {
+      const notification = new Notification(title, { body });
+    }
+  };
 
   useEffect(() => {
     const getNotifications = async () => {
@@ -27,6 +35,18 @@ const Notifications = () => {
       }
     };
     getNotifications();
+    if (
+      Notification.permission !== "granted" &&
+      Notification.permission !== "denied"
+    ) {
+      Notification.requestPermission().then((permission) => {
+        if (permission == "granted") {
+          const notification = new Notification(
+            "Your notifications are now enabled"
+          );
+        }
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -36,6 +56,15 @@ const Notifications = () => {
       "postgres_changes",
       { event: "*", schema: "public", table: "notifications" },
       (payload) => {
+        if (payload.eventType == "INSERT") {
+          const newNotification = payload.new as Tables<"notifications">;
+          setNotifications((prevNotifications) => [
+            ...prevNotifications,
+            newNotification,
+          ]);
+          notifyUser(newNotification.title, newNotification.description);
+        }
+        debugger;
         console.log("Notification received:", payload);
       }
     );
@@ -64,7 +93,7 @@ const Notifications = () => {
           <CardBody>
             <Stack>
               {notifications.map((notif) => {
-                return <Notification notification={notif} />;
+                return <MyNotification notification={notif} key={notif.id} />;
               })}
             </Stack>
           </CardBody>
