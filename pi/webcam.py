@@ -9,47 +9,82 @@ import av
 from ultralytics import YOLO
 import cv2
 
+from dotenv import load_dotenv
+from supabase import create_client, Client
+import uuid
+
+from aiortc.rtcrtpparameters import RTCRtpCodecCapability
+from collections import OrderedDict
+
 from gpiozero import MotionSensor
 
 from aiohttp import web
 from aiortc import RTCPeerConnection, RTCSessionDescription
-from aiortc.contrib.media import MediaStreamTrack
+from aiortc.contrib.media import MediaStreamTrack, MediaPlayer, MediaRecorder, MediaRelay
 
 from picamera2 import Picamera2
 from fractions import Fraction
 
+load_dotenv()
+url = os.getenv("SUPABASE_URL")
+key = os.getenv("SUPABASE_KEY")
+supabase: Client = create_client(url, key)
+data = supabase.auth.sign_in_with_password({"email": "dani.tanase2002+test1@gmail.com", "password": "Copernic@1234"})
+print(data)
 pir = MotionSensor(14)
 model = YOLO('yolov8n.pt')
+names = model.names
 
 cam = Picamera2()
 cam.configure(cam.create_video_configuration(main={"size": (640, 480)}))
 cam.start()
+isSomeoneWatching = 0
 
-#mode = cam.sensor_modes[0]
-#config = cam.create_video_configuration(sensor={'output_size': mode['size'], 'bit_depth': mode['bit_depth']}, main={"size": (640,480)})
-#print(cam.sensor_modes)
-#cam.configure(config)
-# sensor = {'output_size': (1640, 1232), 'bit_depth': 8}
-# raw = {'format': 'SBGGR8'}  # this is an unpacked format
-#config = camera.create_preview_configuration(sensor=sensor)  # this would fail
-# config = cam.create_preview_configuration(raw=raw, sensor=sensor)  # works
-# cam.configure(config)
+codec_parameters = OrderedDict(
+    [
+        ("packetization-mode", "1"),
+        ("level-asymmetry-allowed", "1"),
+        ("profile-level-id", "42001f"),
+    ]
+)
+pi_capability = RTCRtpCodecCapability(
+    mimeType="video/H264", clockRate=90000, channels=None, parameters=codec_parameters
+)
+preferences = [pi_capability]
 
+def notifyUser():
+    global supabase
+    print("send")
+    notification_data = {
+            "id": str(uuid.uuid4()), 
+            "title": "Someone is at your door",
+            "description": "Please check the camera. Someone is at your door right now.",
+            "isread": False
+        }
+    print(notification_data)
+    data, count = supabase.table('notifications').insert(notification_data).execute()
+    print(data)
 
 async def detect_yolo(frame):
     img_rgb = cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB)
     results = model(img_rgb, stream=True)
     for result in results:
-        pred = result.probs
+        for c in result.boxes.cls:
+            print(names[int(c)])
+            detectedObject = names[int(c)]
+            if detectedObject == 'person':
+                notifyUser()
+
     
 async def check_motion():
-    while True:  
-        if pir.motion_detected:
-            img = cam.capture_array()
-            detect_yolo(img)
-            await asyncio.sleep(10)
-        else:
-            print('No motion')
+    while True:
+        if isSomeoneWatching == 0:
+            if pir.motion_detected:
+                img = cam.capture_array()
+                await detect_yolo(img)
+                await asyncio.sleep(10)
+            else:
+                print('No motion')
         await asyncio.sleep(1)
 
 class PiCameraTrack(MediaStreamTrack):
@@ -65,9 +100,6 @@ class PiCameraTrack(MediaStreamTrack):
             self._start_time = time.time()
         img = cam.capture_array()
 
-        # if(self._frame_count % 20 == 0):
-        #     detect_yolo(img)
-                    
         pts = time.time() * 1000000
         new_frame = av.VideoFrame.from_ndarray(img, format='rgba')
         new_frame.pts = int(pts)
@@ -85,6 +117,7 @@ class PiCameraTrack(MediaStreamTrack):
 
 
 async def offer(request):
+    global isSomeoneWatching
     params = await request.json()
     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
 
@@ -93,18 +126,35 @@ async def offer(request):
 
     @pc.on("connectionstatechange")
     async def on_connectionstatechange():
+        global isSomeoneWatching
         print("Connection state is %s" % pc.connectionState)
+        if pc.connectionState == 'connected':
+            isSomeoneWatching += 1
+        if pc.connectionState == 'closed':
+            isSomeoneWatching -= 1
         if pc.connectionState == "failed":
             await pc.close()
             pcs.discard(pc)
 
     # open media source
     cam = PiCameraTrack()
+    mic = MediaPlayer('hw:3,0', format='alsa', options={'channels': '1', 'sample_rate': '44000'})
 
-    if cam:
-        pc.addTrack(cam)
+    @pc.on("track")
+    async def on_track(track):
+        if track.kind == "audio":
+            audio_play = MediaRecorder('hw:0,0', format='alsa', options={'channels': '1', 'sample_rate': '44000'})
+            audio_play.addTrack(track)
+            await audio_play.start()
 
     await pc.setRemoteDescription(offer)
+    transceivers = pc.getTransceivers()
+    for t in transceivers:
+        if t.kind == "audio" and mic and mic.audio:
+            pc.addTrack(mic.audio)
+        if t.kind == "video" and cam:
+            t.setCodecPreferences(preferences)
+            pc.addTrack(cam)
 
     answer = await pc.createAnswer()
     await pc.setLocalDescription(answer)
@@ -135,7 +185,6 @@ pcs = set()
 
 
 async def on_shutdown(app):
-    # close peer connections
     coros = [pc.close() for pc in pcs]
     await asyncio.gather(*coros)
     pcs.clear()
@@ -188,11 +237,11 @@ if __name__ == "__main__":
         ssl_context = None
 
     app = web.Application()
+
     app.on_startup.append(start_background_tasks)
     app.on_cleanup.append(cleanup_background_tasks)
     app.on_shutdown.append(on_shutdown)
-    # app.router.add_get("/", index)
-    # app.router.add_get("/client.js", javascript)
+
     app.router.add_options("/offer", options)
     app.router.add_post("/offer", offer)
     web.run_app(app, host=args.host, port=args.port, ssl_context=ssl_context)
