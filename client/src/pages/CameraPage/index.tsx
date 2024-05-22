@@ -54,7 +54,7 @@ const CameraPage = () => {
         }
       });
 
-      const response = await fetch("http://192.168.1.158:8080/offer", {
+      const response = await fetch("http://192.168.32.237:8080/offer", {
         body: JSON.stringify({
           sdp: pc.localDescription?.sdp,
           type: pc.localDescription?.type,

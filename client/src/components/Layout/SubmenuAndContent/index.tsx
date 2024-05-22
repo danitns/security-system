@@ -5,6 +5,7 @@ import {
   DrawerContent,
   DrawerOverlay,
   Flex,
+  Icon,
   IconButton,
   useDisclosure,
 } from "@chakra-ui/react";
@@ -12,6 +13,7 @@ import React from "react";
 import SidebarContent from "../SidebarContent";
 import { FiMenu } from "react-icons/fi";
 import Notifications from "../Notifications";
+import { CgProfile } from "react-icons/cg";
 
 const SubmenuAndContent = (props) => {
   const sidebar = useDisclosure();
@@ -51,11 +53,12 @@ const SubmenuAndContent = (props) => {
 
           <Flex align="center">
             <Notifications />
-            <Avatar
+            <Icon
+              as={CgProfile}
+              color="gray.500"
               ml="4"
-              size="sm"
-              name="anubra266"
-              src="https://avatars.githubusercontent.com/u/30869823?v=4"
+              width={5}
+              height={5}
               cursor="pointer"
             />
           </Flex>

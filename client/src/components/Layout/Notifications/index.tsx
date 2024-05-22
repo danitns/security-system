@@ -18,6 +18,7 @@ const Notifications = () => {
   const [notifications, setNotifications] = useState<Tables<"notifications">[]>(
     []
   );
+  const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
 
   const notifyUser = (title: string, body: string) => {
     if (!("Notification" in window)) {
@@ -32,6 +33,10 @@ const Notifications = () => {
       const { data } = await supabase.from("notifications").select();
       if (data) {
         setNotifications(data);
+        const numberOfUnreadNotif = data.filter((elem) => {
+          return !elem.isread;
+        }).length;
+        setUnreadNotifications(numberOfUnreadNotif);
       }
     };
     getNotifications();
@@ -78,12 +83,18 @@ const Notifications = () => {
 
   return (
     <div>
-      <Icon
-        color="gray.500"
-        as={FaBell}
-        cursor="pointer"
+      <span
+        className="button-notifications"
         onClick={() => setIsExpanded(!isExpanded)}
-      />
+      >
+        <Icon color="gray.500" as={FaBell} cursor="pointer"></Icon>
+        {unreadNotifications > 0 && (
+          <span className="tab-number">
+            {unreadNotifications > 9 ? +9 : unreadNotifications}
+          </span>
+        )}
+      </span>
+
       {isExpanded && (
         <Card className="notification-container">
           <CardHeader>
