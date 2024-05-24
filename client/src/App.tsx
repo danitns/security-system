@@ -53,9 +53,11 @@ function App() {
         <Route
           path="/camera"
           element={
-            <SubmenuAndContent>
-              <CameraPage />
-            </SubmenuAndContent>
+            <PrivateRoute>
+              <SubmenuAndContent>
+                <CameraPage />
+              </SubmenuAndContent>
+            </PrivateRoute>
           }
         />
       </Routes>

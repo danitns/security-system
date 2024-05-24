@@ -13,7 +13,7 @@ import React from "react";
 import SidebarContent from "../SidebarContent";
 import { FiMenu } from "react-icons/fi";
 import Notifications from "../Notifications";
-import { CgProfile } from "react-icons/cg";
+import Profile from "../Profile";
 
 const SubmenuAndContent = (props) => {
   const sidebar = useDisclosure();
@@ -53,14 +53,7 @@ const SubmenuAndContent = (props) => {
 
           <Flex align="center">
             <Notifications />
-            <Icon
-              as={CgProfile}
-              color="gray.500"
-              ml="4"
-              width={5}
-              height={5}
-              cursor="pointer"
-            />
+            <Profile />
           </Flex>
         </Flex>
 

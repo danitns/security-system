@@ -7,11 +7,12 @@ import {
   Icon,
   Stack,
 } from "@chakra-ui/react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { FaBell } from "react-icons/fa";
 import { Tables } from "../../../types/supabase";
 import { supabase } from "../../../utils/supabase";
 import MyNotification from "./notification";
+import ClickOutside from "../../Widgets/ClickOutside";
 
 const Notifications = () => {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -19,6 +20,7 @@ const Notifications = () => {
     []
   );
   const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
+  const iconRef = useRef<null | HTMLElement>(null);
 
   const notifyUser = (title: string, body: string) => {
     if (!("Notification" in window)) {
@@ -28,17 +30,21 @@ const Notifications = () => {
     }
   };
 
+  const getNotifications = async () => {
+    const { data } = await supabase
+      .from("notifications")
+      .select()
+      .order("timestamp", { ascending: false });
+    if (data) {
+      setNotifications(data);
+      const numberOfUnreadNotif = data.filter((elem) => {
+        return !elem.isread;
+      }).length;
+      setUnreadNotifications(numberOfUnreadNotif);
+    }
+  };
+
   useEffect(() => {
-    const getNotifications = async () => {
-      const { data } = await supabase.from("notifications").select();
-      if (data) {
-        setNotifications(data);
-        const numberOfUnreadNotif = data.filter((elem) => {
-          return !elem.isread;
-        }).length;
-        setUnreadNotifications(numberOfUnreadNotif);
-      }
-    };
     getNotifications();
     if (
       Notification.permission !== "granted" &&
@@ -63,13 +69,12 @@ const Notifications = () => {
       (payload) => {
         if (payload.eventType == "INSERT") {
           const newNotification = payload.new as Tables<"notifications">;
-          setNotifications((prevNotifications) => [
-            ...prevNotifications,
-            newNotification,
-          ]);
+          const newNotifications = [...notifications, newNotification];
+          setNotifications(newNotifications);
           notifyUser(newNotification.title, newNotification.description);
+        } else {
+          getNotifications();
         }
-        debugger;
         console.log("Notification received:", payload);
       }
     );
@@ -86,6 +91,7 @@ const Notifications = () => {
       <span
         className="button-notifications"
         onClick={() => setIsExpanded(!isExpanded)}
+        ref={iconRef}
       >
         <Icon color="gray.500" as={FaBell} cursor="pointer"></Icon>
         {unreadNotifications > 0 && (
@@ -96,19 +102,28 @@ const Notifications = () => {
       </span>
 
       {isExpanded && (
-        <Card className="notification-container">
-          <CardHeader>
-            <Heading size="md">Notifications</Heading>
-          </CardHeader>
-          <Divider></Divider>
-          <CardBody>
-            <Stack>
-              {notifications.map((notif) => {
-                return <MyNotification notification={notif} key={notif.id} />;
-              })}
-            </Stack>
-          </CardBody>
-        </Card>
+        <ClickOutside
+          onClickOutside={() => setIsExpanded(false)}
+          ignoreComponentRef={iconRef}
+        >
+          <Card
+            className="notification-container"
+            borderColor={"gray.300"}
+            borderWidth={"1px"}
+          >
+            <CardHeader>
+              <Heading size="md">Notifications</Heading>
+            </CardHeader>
+            <Divider></Divider>
+            <CardBody maxHeight={400} overflow="auto">
+              <Stack>
+                {notifications.map((notif) => {
+                  return <MyNotification notification={notif} key={notif.id} />;
+                })}
+              </Stack>
+            </CardBody>
+          </Card>
+        </ClickOutside>
       )}
     </div>
   );

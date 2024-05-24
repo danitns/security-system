@@ -1,9 +1,10 @@
-import { Box, Flex, Text } from "@chakra-ui/react";
+import { Box, Flex, Image, Text } from "@chakra-ui/react";
 import React from "react";
 import NavItem from "../NavItem";
 import { BsGearFill } from "react-icons/bs";
 import { MdHome } from "react-icons/md";
 import { GiCctvCamera } from "react-icons/gi";
+import reactLogo from "../../../assets/logo.svg";
 
 const SidebarContent = (props) => {
   return (
@@ -26,7 +27,7 @@ const SidebarContent = (props) => {
       {...props}
     >
       <Flex px="4" py="5" align="center">
-        {/* <Logo /> */}
+        <Image src={reactLogo} w={"50px"} />
         <Text
           fontSize="2xl"
           ml="2"
@@ -34,7 +35,7 @@ const SidebarContent = (props) => {
           _dark={{ color: "white" }}
           fontWeight="semibold"
         >
-          MotionEye
+          GateGuard
         </Text>
       </Flex>
       <Flex
