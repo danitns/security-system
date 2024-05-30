@@ -1,8 +1,10 @@
-import { Button, Heading } from "@chakra-ui/react";
+import { Box, Button, Container, Heading, Icon } from "@chakra-ui/react";
 import React, { useEffect, useRef, useState } from "react";
+import { IoIosPlayCircle } from "react-icons/io";
 
 const CameraPage = () => {
   const [pc, setPc] = useState<RTCPeerConnection | null>(null);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [config, setConfig] = useState<RTCConfiguration>({
     sdpSemantics: "undefined-plan",
   } as RTCConfiguration);
@@ -87,8 +89,10 @@ const CameraPage = () => {
         audio: true,
       });
       stream.getTracks().forEach((track) => newPc.addTrack(track, stream));
+      setIsPlaying(true);
     } catch (error) {
       console.error("Error accessing media devices.", error);
+      setIsPlaying(false);
     }
   };
 
@@ -96,15 +100,41 @@ const CameraPage = () => {
     if (pc) {
       pc.close();
     }
+    setIsPlaying(false);
   };
   return (
-    <div>
-      <Heading>Media</Heading>
-      <Button onClick={startStream}>Start</Button>
-      <Button onClick={stopStream}>Stop</Button>
-
-      <video ref={videoRef} autoPlay={true} playsInline={true}></video>
-    </div>
+    <Box>
+      <Heading>Live camera</Heading>
+      <Box maxW={"75%"} position={"relative"}>
+        {isPlaying ? (
+          <Button onClick={stopStream}>Stop</Button>
+        ) : (
+          <div>
+            <Icon
+              zIndex={100000}
+              onClick={startStream}
+              className="buttonhover"
+              position={"absolute"}
+              as={IoIosPlayCircle}
+              color={"white"}
+              w={"80px"}
+              height={"80px"}
+              style={{
+                left: "50%",
+                top: "50%",
+                transform: "translate(-50%, -50%)",
+              }}
+            ></Icon>
+          </div>
+        )}
+        <video
+          ref={videoRef}
+          autoPlay={true}
+          playsInline={true}
+          className="live-video"
+        ></video>
+      </Box>
+    </Box>
   );
 };
 
