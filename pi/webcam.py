@@ -16,7 +16,8 @@ import uuid
 from aiortc.rtcrtpparameters import RTCRtpCodecCapability
 from collections import OrderedDict
 
-from gpiozero import MotionSensor
+from gpiozero import MotionSensor, AngularServo
+from gpiozero.pins.pigpio import PiGPIOFactory
 
 from aiohttp import web
 from aiortc import RTCPeerConnection, RTCSessionDescription
@@ -28,15 +29,19 @@ from fractions import Fraction
 load_dotenv()
 url = os.getenv("SUPABASE_URL")
 key = os.getenv("SUPABASE_KEY")
+email = os.getenv("SUPABASE_EMAIL")
+password = os.getenv("SUPABASE_PASSWORD")
 supabase: Client = create_client(url, key)
-data = supabase.auth.sign_in_with_password({"email": "dani.tanase2002+test1@gmail.com", "password": "Copernic@1234"})
-print(data)
+data = supabase.auth.sign_in_with_password({"email": email, "password": password})
 pir = MotionSensor(14)
 model = YOLO('yolov8n.pt')
 names = model.names
 
 cam = Picamera2()
-cam.configure(cam.create_video_configuration(main={"size": (640, 480)}))
+live_config = cam.create_video_configuration(main={"size": (640, 480)})
+capture_config = cam.create_still_configuration(main={"size": (1640, 1232)})
+cam.configure(capture_config)
+
 cam.start()
 isSomeoneWatching = 0
 
@@ -52,20 +57,37 @@ pi_capability = RTCRtpCodecCapability(
 )
 preferences = [pi_capability]
 
-def notifyUser():
+factory = PiGPIOFactory()
+
+servo = AngularServo(18, min_pulse_width=0.0006, max_pulse_width=0.0023, pin_factory=factory)
+
+def notifyUser(img_path):
     global supabase
     print("send")
+    
+    bucket_name = 'imagesurl'
+    image_name = f"{uuid.uuid4()}.jpg"
+    
+    with open(img_path, "rb") as image_file:
+        image_data = image_file.read()
+        
+    response = supabase.storage.from_(bucket_name).upload(path=f'public/{image_name}', file=image_data)
+    
+    image_url = supabase.storage.from_(bucket_name).get_public_url(image_name)
+    
     notification_data = {
             "id": str(uuid.uuid4()), 
             "title": "Someone is at your door",
             "description": "Please check the camera. Someone is at your door right now.",
-            "isread": False
+            "isread": False,
+            "imageurl": image_url
         }
     print(notification_data)
     data, count = supabase.table('notifications').insert(notification_data).execute()
     print(data)
 
 async def detect_yolo(frame):
+    shouldSend = False;
     img_rgb = cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB)
     results = model(img_rgb, stream=True)
     for result in results:
@@ -73,15 +95,22 @@ async def detect_yolo(frame):
             print(names[int(c)])
             detectedObject = names[int(c)]
             if detectedObject == 'person':
-                notifyUser()
+                shouldSend = True
+                
+    if shouldSend == True:
+        current_folder = os.path.dirname(os.path.abspath(__file__))
+        image_path = os.path.join(current_folder, f"{uuid.uuid4()}.jpg")
+        cv2.imwrite(image_path, frame)
+        notifyUser(image_path)
+    return shouldSend
 
     
 async def check_motion():
     while True:
         if isSomeoneWatching == 0:
             if pir.motion_detected:
-                img = cam.capture_array()
-                await detect_yolo(img)
+                img = cam.capture_array();
+                result = await detect_yolo(img)
                 await asyncio.sleep(10)
             else:
                 print('No motion')
@@ -115,8 +144,36 @@ class PiCameraTrack(MediaStreamTrack):
 
         return new_frame
 
+def open_door(request):
+    global servo
+    servo.angle = 90
+    return web.Response(
+        content_type="application/json",
+        headers={
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type'
+        },
+        text=json.dumps(
+            {"success": True}
+        ),
+    )
+
+def close_door(request):
+    global servo
+    servo.angle = -90
+    return web.Response(
+        content_type="application/json",
+        headers={
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type'
+        },
+        text=json.dumps(
+            {"success": True}
+        ),
+    )
 
 async def offer(request):
+    global cam
     global isSomeoneWatching
     params = await request.json()
     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
@@ -132,13 +189,15 @@ async def offer(request):
             isSomeoneWatching += 1
         if pc.connectionState == 'closed':
             isSomeoneWatching -= 1
+            if(isSomeoneWatching == 0):
+                cam.switch_mode(capture_config)
         if pc.connectionState == "failed":
             await pc.close()
             pcs.discard(pc)
 
-    # open media source
-    cam = PiCameraTrack()
-    mic = MediaPlayer('hw:3,0', format='alsa', options={'channels': '1', 'sample_rate': '44000'})
+    cam.switch_mode(live_config)
+    cam_track = PiCameraTrack()
+    mic = MediaPlayer('hw:1,0', format='alsa', options={'channels': '1', 'sample_rate': '44000'})
 
     @pc.on("track")
     async def on_track(track):
@@ -152,9 +211,9 @@ async def offer(request):
     for t in transceivers:
         if t.kind == "audio" and mic and mic.audio:
             pc.addTrack(mic.audio)
-        if t.kind == "video" and cam:
+        if t.kind == "video" and cam_track:
             t.setCodecPreferences(preferences)
-            pc.addTrack(cam)
+            pc.addTrack(cam_track)
 
     answer = await pc.createAnswer()
     await pc.setLocalDescription(answer)
@@ -194,7 +253,7 @@ async def start_background_tasks(app):
 
 async def cleanup_background_tasks(app):
     app['check_motion'].cancel()
-    await app['check motion']
+    await app['check_motion']
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="WebRTC webcam demo")
@@ -243,5 +302,9 @@ if __name__ == "__main__":
     app.on_shutdown.append(on_shutdown)
 
     app.router.add_options("/offer", options)
+    app.router.add_options("/open-door", options)
+    app.router.add_options("/close-door", options)
     app.router.add_post("/offer", offer)
+    app.router.add_get("/open-door", open_door)
+    app.router.add_get("/close-door", close_door)
     web.run_app(app, host=args.host, port=args.port, ssl_context=ssl_context)
