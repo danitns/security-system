@@ -1,0 +1,12 @@
+.notification-container {
+  position: absolute !important;
+  top: 50px;
+  right: 50px;
+}
+
+.profile-container {
+  position: absolute !important;
+  top: 50px;
+  right: 15px;
+  width: 300px;
+}

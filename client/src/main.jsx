@@ -1,6 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.tsx";
+import "./styles/layout.css";
+import "./index.css"
 import { ChakraProvider } from "@chakra-ui/react";
 import ContextContainer from "./components/ReactContexts/contextContainer.tsx";
 
