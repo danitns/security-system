@@ -69,12 +69,9 @@ const Notifications = () => {
       (payload) => {
         if (payload.eventType == "INSERT") {
           const newNotification = payload.new as Tables<"notifications">;
-          const newNotifications = [...notifications, newNotification];
-          setNotifications(newNotifications);
           notifyUser(newNotification.title, newNotification.description);
-        } else {
-          getNotifications();
         }
+        getNotifications();
         console.log("Notification received:", payload);
       }
     );
@@ -96,7 +93,7 @@ const Notifications = () => {
         <Icon color="gray.500" as={FaBell} cursor="pointer"></Icon>
         {unreadNotifications > 0 && (
           <span className="tab-number">
-            {unreadNotifications > 9 ? +9 : unreadNotifications}
+            {unreadNotifications > 9 ? "+9" : unreadNotifications}
           </span>
         )}
       </span>
@@ -107,6 +104,7 @@ const Notifications = () => {
           ignoreComponentRef={iconRef}
         >
           <Card
+            zIndex={100000}
             className="notification-container"
             borderColor={"gray.300"}
             borderWidth={"1px"}

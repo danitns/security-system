@@ -27,7 +27,7 @@ const SubmenuAndContent = (props) => {
       >
         <DrawerOverlay />
         <DrawerContent>
-          <SidebarContent borderRight="none" />
+          <SidebarContent borderRight="none" onClose={sidebar.onClose} />
         </DrawerContent>
       </Drawer>
       <Box ml={{ base: 0, md: 60 }} transition=".3s ease">

@@ -7,12 +7,13 @@ interface INavItem {
   icon: any;
   path: string;
   children: ReactNode;
+  onClose: () => void;
 }
 
 const NavItem: React.FC<INavItem> = (props) => {
   const color = useColorModeValue("gray.600", "gray.300");
   return (
-    <Link as={ReactRouterLink} to={props.path}>
+    <Link as={ReactRouterLink} to={props.path} onClick={props.onClose}>
       <Flex
         align="center"
         px="4"

@@ -22,7 +22,6 @@ const Profile = () => {
   const iconRef = useRef<null | HTMLElement>(null);
 
   const signOut = async () => {
-    debugger;
     await supabase.auth.signOut();
   };
 
@@ -48,6 +47,7 @@ const Profile = () => {
           ignoreComponentRef={iconRef}
         >
           <Card
+            zIndex={100000}
             className="profile-container"
             borderColor={"gray.300"}
             borderWidth={"1px"}

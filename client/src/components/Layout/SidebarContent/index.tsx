@@ -45,14 +45,18 @@ const SidebarContent = (props) => {
         color="gray.600"
         aria-label="Main Navigation"
       >
-        <NavItem icon={MdHome} path="/">
+        <NavItem icon={MdHome} path="/" onClose={props.onClose}>
           Home
         </NavItem>
-        <NavItem icon={GiCctvCamera} path="/camera">
+        <NavItem icon={GiCctvCamera} path="/camera" onClose={props.onClose}>
           Camera
         </NavItem>
-        <NavItem icon={BsGearFill} path="/">
-          Settings
+        <NavItem
+          icon={BsGearFill}
+          path="/notifications"
+          onClose={props.onClose}
+        >
+          Notifications
         </NavItem>
       </Flex>
     </Box>

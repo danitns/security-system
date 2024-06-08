@@ -29,7 +29,7 @@ const MyNotification: React.FC<INotification> = ({ notification }) => {
   return (
     <Link
       as={ReactRouterLink}
-      to="/camera"
+      to="/notifications"
       onClick={readNotification}
       fontWeight={notification.isread ? "200" : "600"}
     >

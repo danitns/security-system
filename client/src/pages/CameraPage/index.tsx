@@ -26,9 +26,14 @@ const CameraPage = () => {
 
     return () => {
       if (pc) {
+        pc.getSenders().forEach((sender) => {
+          if (pc.signalingState !== "closed") {
+            pc.removeTrack(sender);
+          }
+        });
         pc.close();
+        pc.removeEventListener("track", addTrack);
       }
-      pc.removeEventListener("track", addTrack);
     };
   }, [pc]);
 
@@ -56,7 +61,7 @@ const CameraPage = () => {
         }
       });
 
-      const response = await fetch("http://192.168.32.237:8080/offer", {
+      const response = await fetch("http://192.168.79.237:8080/offer", {
         body: JSON.stringify({
           sdp: pc.localDescription?.sdp,
           type: pc.localDescription?.type,
@@ -76,42 +81,82 @@ const CameraPage = () => {
     }
   };
 
+  const openDoor = async () => {
+    const response = await fetch("http://192.168.79.237:8080/open-door", {
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "GET",
+      mode: "cors",
+    });
+  };
+
+  const closeDoor = async () => {
+    const response = await fetch("http://192.168.79.237:8080/close-door", {
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "GET",
+      mode: "cors",
+    });
+  };
+
   const startStream = async () => {
     let newPc = pc;
     if (!newPc) {
       newPc = new RTCPeerConnection(config);
       setPc(newPc);
     }
-
+    setIsPlaying(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: false,
         audio: true,
       });
       stream.getTracks().forEach((track) => newPc.addTrack(track, stream));
-      setIsPlaying(true);
     } catch (error) {
       console.error("Error accessing media devices.", error);
-      setIsPlaying(false);
     }
   };
 
   const stopStream = () => {
     if (pc) {
+      pc.getSenders().forEach((sender) => {
+        if (pc.signalingState !== "closed") {
+          pc.removeTrack(sender);
+        }
+      });
+      pc.getReceivers().forEach((receiver) => {
+        receiver.track.stop();
+      });
       pc.close();
     }
+
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => track.stop());
+      videoRef.current.srcObject = null;
+    }
+
+    setPc(null);
     setIsPlaying(false);
   };
   return (
     <Box>
       <Heading>Live camera</Heading>
-      <Box maxW={"75%"} position={"relative"}>
+      <Box
+        maxW={"640px"}
+        w={"100%"}
+        maxH={"640px"}
+        h={"100%"}
+        position={"relative"}
+      >
         {isPlaying ? (
           <Button onClick={stopStream}>Stop</Button>
         ) : (
           <div>
             <Icon
-              zIndex={100000}
+              zIndex={1000}
               onClick={startStream}
               className="buttonhover"
               position={"absolute"}
@@ -134,6 +179,8 @@ const CameraPage = () => {
           className="live-video"
         ></video>
       </Box>
+      <Button onClick={openDoor}>Open</Button>
+      <Button onClick={closeDoor}>Close</Button>
     </Box>
   );
 };

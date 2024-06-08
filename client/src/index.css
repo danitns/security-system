@@ -32,3 +32,12 @@
 .buttonhover:hover {
   cursor: pointer;
 }
+
+.background-image{
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+.shadow-right {
+  box-shadow: 10px 0 5px -5px rgba(0, 0, 0, 0.5);
+}
